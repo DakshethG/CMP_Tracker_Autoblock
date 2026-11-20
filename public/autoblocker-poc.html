@@ -7,7 +7,7 @@
   <!-- POC_BLOCKER -->
   <script>
     window.__poc = {
-      run: '__POC_RUN__', mode: '__POC_MODE__', executed: {}, resourceRequests: new Set(), notes: [],
+      run: '__POC_RUN__', mode: '__POC_MODE__', delay: Number('__POC_DELAY__'), executed: {}, resourceRequests: new Set(), notes: [],
       markExecuted(pattern) { this.executed[pattern] = (this.executed[pattern] || 0) + 1; render(); },
       note(text) { this.notes.push(text); render(); }
     };
@@ -69,7 +69,7 @@
     function render() {
       const target = document.getElementById('results'); if (!target) return;
       target.replaceChildren();
-      const displayMode = window.__poc.mode === 'baseline' ? 'Baseline — no blocker' : `Blocked — ${new URL(location.href).searchParams.get('delay') || '0'} ms`;
+      const displayMode = window.__poc.mode === 'baseline' ? 'Baseline — no blocker' : `Blocked — ${window.__poc.delay} ms`;
       rows.forEach(([pattern, label, filename, kind]) => {
         const row = document.createElement('tr');
         [label, displayMode, requested(pattern, kind), ran(pattern, kind), verdict(pattern, kind), evidence(pattern, filename, kind)].forEach(value => {
@@ -80,10 +80,7 @@
       document.getElementById('audit').textContent = [...(window.__pocAudit || []), ...window.__poc.notes].join('\n') || 'No blocker audit in baseline mode.';
     }
     document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => {
-        const next = new URL(location.href); next.searchParams.set('mode', button.dataset.mode); next.searchParams.set('run', `${button.dataset.mode}-${Date.now()}`);
-        if (button.dataset.delay) next.searchParams.set('delay', button.dataset.delay); else next.searchParams.delete('delay'); location.assign(next);
-      }));
+      document.querySelectorAll('[data-path]').forEach(button => button.addEventListener('click', () => location.assign(button.dataset.path)));
       setTimeout(() => {
         const run = encodeURIComponent(window.__poc.run);
         const script = document.createElement('script'); script.dataset.pocTracker = 'dynamic-script'; script.src = `/poc-assets/dynamic-tracker.js?run=${run}&pattern=dynamic-script`; document.body.appendChild(script);
@@ -112,7 +109,7 @@
 <body>
   <h1>Privado Autoblocker POC</h1>
   <p class="muted">Each controlled pattern fires once per page load. The browser Network panel is the authoritative request evidence; this table pairs it with execution and side-effect evidence.</p>
-  <p><button data-mode="baseline">Baseline — no blocker</button><button data-mode="blocked">Blocked — 0 ms</button><button data-mode="blocked" data-delay="800">Blocked — 800 ms</button></p>
+  <p><button data-path="/">Baseline — no blocker</button><button data-path="/blocked">Blocked — 0 ms</button><button data-path="/blocked-delayed">Blocked — 800 ms</button></p>
   <p id="run-meta">Loading…</p>
   <table><thead><tr><th>Pattern</th><th>Mode</th><th>Requested before consent?</th><th>Ran before consent?</th><th>Verdict</th><th>Evidence</th></tr></thead><tbody id="results"></tbody></table>
   <details><summary>Blocker audit</summary><pre id="audit"></pre></details>

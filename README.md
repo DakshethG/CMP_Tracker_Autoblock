@@ -14,24 +14,22 @@ Requirements: Node.js 18 or later.
 npm start
 ```
 
-Open one mode at a time. Use a new `run` value on every load.
-
-Opening the base URL (`/`) redirects to the baseline page. The direct URLs are
-useful when you want to choose a specific mode deliberately.
+Open one mode at a time. Each page load receives a fresh run identifier
+automatically.
 
 ```text
-http://127.0.0.1:56813/autoblocker-poc.html?mode=baseline&run=baseline-1
-http://127.0.0.1:56813/autoblocker-poc.html?mode=blocked&delay=0&run=blocked-0-1
-http://127.0.0.1:56813/autoblocker-poc.html?mode=blocked&delay=800&run=blocked-800-1
+http://127.0.0.1:56813/
+http://127.0.0.1:56813/blocked
+http://127.0.0.1:56813/blocked-delayed
 ```
 
 ## What each mode means
 
 | Mode | Purpose |
 | --- | --- |
-| `baseline` | No blocker. Confirms that each applicable test pattern can fire. |
-| `blocked&delay=0` | Candidate blocker is loaded first with no artificial delay. |
-| `blocked&delay=800` | Same candidate blocker, but its response is delayed by 800 ms. |
+| `/` | Baseline: no blocker. Confirms that each applicable test pattern can fire. |
+| `/blocked` | Candidate blocker is loaded first with no artificial delay. |
+| `/blocked-delayed` | Same candidate blocker, but its response is delayed by 800 ms. |
 
 ## Test patterns
 
@@ -75,14 +73,12 @@ intentional 800 ms blocker delay, and controlled tracker endpoints.
 Example:
 
 ```text
-https://your-site.netlify.app/autoblocker-poc.html?mode=baseline&run=baseline-1
-```
-
-The plain site URL redirects to the baseline mode:
-
-```text
 https://your-site.netlify.app/
+https://your-site.netlify.app/blocked
+https://your-site.netlify.app/blocked-delayed
 ```
+
+The plain site URL is the baseline mode; it does not redirect.
 
 Keep the repository and deployed preview private while the POC is under
 internal review.

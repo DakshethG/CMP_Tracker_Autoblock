@@ -2,15 +2,5 @@
   publish = "public"
   functions = "netlify/functions"
 
-# Keep the HTML dynamic: the function inserts the blocker only in blocked mode
-# and can intentionally delay its response for the 800 ms experiment.
 [functions]
   included_files = ["public/**"]
-
-# Make the shareable base URL open the baseline test directly. This Netlify
-# redirect runs before static-file handling, so it avoids relying on index.html.
-[[redirects]]
-  from = "/"
-  to = "/autoblocker-poc.html?mode=baseline&run=baseline"
-  status = 302
-  force = true
