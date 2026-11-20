@@ -4,6 +4,14 @@ import { join } from 'node:path';
 const root = join(process.cwd(), 'public');
 const runs = new Map();
 const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64');
+const namedPatterns = {
+  '/poc-assets/ga-normal.js': 'script-normal', '/poc-assets/ga-async.js': 'script-async',
+  '/poc-assets/ga-defer.js': 'script-defer', '/poc-assets/droppingcookie.js': 'dropping-cookie',
+  '/poc-assets/gtm-child.js': 'gtm-child', '/poc-assets/meta-child.js': 'meta-child',
+  '/poc-assets/image-pixel.gif': 'image-html', '/poc-assets/tracker-iframe.html': 'iframe-html',
+  '/poc-assets/preload-target.js': 'preload', '/poc-assets/prefetch-target.js': 'prefetch',
+  '/poc-assets/dynamic-tracker.js': 'dynamic-script', '/poc-assets/dynamic-pixel.gif': 'dynamic-image'
+};
 
 const headers = { 'cache-control': 'no-store' };
 
@@ -30,9 +38,9 @@ function scriptFor(run, pattern) {
 localStorage.setItem('poc_tracker_storage', '1');
 window.__poc?.markExecuted('dropping-cookie');
 setTimeout(() => window.__poc?.markExecuted('dropping-cookie-timer'), 50);
-fetch('/poc-api/collect?run=${run}&pattern=dropping-cookie-fetch').catch(() => {});
-const pixel = new Image(); pixel.src = '/poc-assets/pixel.gif?run=${run}&pattern=dropping-cookie-pixel';
-navigator.sendBeacon?.('/poc-api/collect?run=${run}&pattern=dropping-cookie-beacon', 'poc');`;
+fetch('/poc-api/dropping-cookie-fetch?run=${run}&pattern=dropping-cookie-fetch').catch(() => {});
+const pixel = new Image(); pixel.src = '/poc-assets/dropping-cookie-pixel.gif?run=${run}&pattern=dropping-cookie-pixel';
+navigator.sendBeacon?.('/poc-api/dropping-cookie-beacon?run=${run}&pattern=dropping-cookie-beacon', 'poc');`;
 }
 
 export const config = {
@@ -50,7 +58,7 @@ export default async (request) => {
     : url.pathname === '/autoblocker-poc.js' ? 'blocker'
       : url.pathname.replace(/^\/poc-(api|assets)\//, '$1/');
   const run = clean(url.searchParams.get('run'));
-  const pattern = clean(url.searchParams.get('pattern'), 'unknown');
+  const pattern = clean(url.searchParams.get('pattern') || namedPatterns[url.pathname], 'unknown');
   const mode = url.searchParams.get('mode') || 'baseline';
   const delay = Math.max(0, Math.min(5_000, Number(url.searchParams.get('delay') || 0) || 0));
 
@@ -74,6 +82,26 @@ export default async (request) => {
 
   if (route === 'api/events') {
     return response(200, JSON.stringify({ events: runs.get(run) || [] }), 'application/json; charset=utf-8');
+  }
+  if (route.startsWith('api/')) {
+    addEvent(run, 'api-requested', pattern);
+    return new Response(null, { status: 204, headers });
+  }
+  if (route.startsWith('assets/') && route.endsWith('.gif')) {
+    addEvent(run, 'pixel-requested', pattern);
+    return new Response(pixel, { status: 200, headers: { ...headers, 'content-type': 'image/gif' } });
+  }
+  if (route === 'assets/tracker-iframe.html') {
+    addEvent(run, 'frame-requested', pattern);
+    return response(200, '<!doctype html><title>Controlled tracker frame</title>', 'text/html; charset=utf-8');
+  }
+  if (route === 'assets/preload-target.js' || route === 'assets/prefetch-target.js') {
+    addEvent(run, 'resource-hint-requested', pattern);
+    return response(200, '/* controlled resource hint */', 'application/javascript; charset=utf-8');
+  }
+  if (route.startsWith('assets/') && route.endsWith('.js') && namedPatterns[url.pathname]) {
+    addEvent(run, 'script-requested', pattern);
+    return response(200, scriptFor(run, pattern), 'application/javascript; charset=utf-8');
   }
   if (route === 'api/collect') {
     addEvent(run, 'api-requested', pattern);

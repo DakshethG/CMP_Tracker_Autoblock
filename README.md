@@ -16,6 +16,9 @@ npm start
 
 Open one mode at a time. Use a new `run` value on every load.
 
+Opening the base URL (`/`) redirects to the baseline page. The direct URLs are
+useful when you want to choose a specific mode deliberately.
+
 ```text
 http://127.0.0.1:56813/autoblocker-poc.html?mode=baseline&run=baseline-1
 http://127.0.0.1:56813/autoblocker-poc.html?mode=blocked&delay=0&run=blocked-0-1
@@ -73,6 +76,12 @@ Example:
 
 ```text
 https://your-site.netlify.app/autoblocker-poc.html?mode=baseline&run=baseline-1
+```
+
+The plain site URL redirects to the baseline mode:
+
+```text
+https://your-site.netlify.app/
 ```
 
 Keep the repository and deployed preview private while the POC is under

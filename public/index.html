@@ -1,0 +1,10 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Privado Autoblocker POC</title>
+<script>
+  const target = new URL('/autoblocker-poc.html', location.origin);
+  target.searchParams.set('mode', 'baseline');
+  target.searchParams.set('run', `baseline-${Date.now()}`);
+  location.replace(target);
+</script>
+<p>Opening the Privado Autoblocker POC…</p>
