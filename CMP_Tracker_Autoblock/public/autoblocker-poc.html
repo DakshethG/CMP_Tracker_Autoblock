@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privado autoblocker POC</title>
+  <!-- POC_BLOCKER -->
+  <script>
+    window.__poc = {
+      run: '__POC_RUN__',
+      mode: '__POC_MODE__',
+      executed: {},
+      browser: {},
+      notes: [],
+      markExecuted(pattern) { this.executed[pattern] = (this.executed[pattern] || 0) + 1; render(); },
+      note(text) { this.notes.push(text); render(); }
+    };
+    // Start every run clean before the parser reaches the controlled tracker.
+    document.cookie = 'poc_tracker_cookie=; Max-Age=0; Path=/; SameSite=Lax';
+    localStorage.removeItem('poc_tracker_storage');
+    const rows = [
+      ['script-normal', 'Normal external script', 'script'],
+      ['script-async', 'Async external script', 'script'],
+      ['script-defer', 'Defer external script', 'script'],
+      ['dropping-cookie', 'Cookie/storage tracker (droppingcookie.js style)', 'script'],
+      ['gtm-inline', 'Inline GTM-style loader', 'script'],
+      ['gtm-child', 'GTM child script', 'script'],
+      ['meta-inline', 'Inline Meta-style loader', 'script'],
+      ['meta-child', 'Meta child script', 'script'],
+      ['image-html', 'HTML image pixel', 'resource'],
+      ['iframe-html', 'HTML iframe', 'resource'],
+      ['preload', 'Preload resource hint', 'resource'],
+      ['prefetch', 'Prefetch resource hint', 'resource'],
+      ['dynamic-script', 'Dynamic script', 'script'],
+      ['dynamic-image', 'Dynamic image', 'resource'],
+      ['fetch', 'fetch()', 'resource'],
+      ['xhr', 'XHR', 'resource'],
+      ['beacon', 'sendBeacon()', 'resource']
+    ];
+    let events = [];
+    function requestSummary(pattern) {
+      const found = events.filter(event => event.pattern === pattern).map(event => event.type);
+      return found.length ? found.join(', ') : 'No request observed';
+    }
+    function executionSummary(pattern, kind) {
+      return window.__poc.executed[pattern] ? `Yes (${window.__poc.executed[pattern]})` : kind === 'script' ? 'No' : 'N/A';
+    }
+    function render() {
+      const target = document.getElementById('results');
+      if (!target) return;
+      target.replaceChildren();
+      rows.forEach(([pattern, label, kind]) => {
+        const row = document.createElement('tr');
+        const storage = pattern === 'dropping-cookie'
+          ? (document.cookie.includes('poc_tracker_cookie=1') && localStorage.getItem('poc_tracker_storage') === '1'
+            ? 'Cookie + localStorage written' : 'No controlled storage observed')
+          : '—';
+        [label, requestSummary(pattern), executionSummary(pattern, kind), storage].forEach(value => {
+          const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
+        });
+        target.appendChild(row);
+      });
+      const audit = window.__pocAudit || [];
+      document.getElementById('run-meta').textContent = `Mode: ${window.__poc.mode}; run: ${window.__poc.run}; server events: ${events.length}`;
+      document.getElementById('audit').textContent = [...audit, ...window.__poc.notes].join('\n') || 'No blocker audit in baseline mode.';
+    }
+    async function poll() {
+      const response = await fetch(`/poc-api/events?run=${encodeURIComponent(window.__poc.run)}`, { cache: 'no-store' });
+      events = (await response.json()).events;
+      render();
+    }
+    window.addEventListener('message', event => {
+      if (event.data?.type === 'poc-frame-loaded') window.__poc.browser[event.data.pattern] = 'loaded';
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      setInterval(() => poll().catch(error => window.__poc.note(`Event poll failed: ${error.message}`)), 250);
+      document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click', () => {
+        const next = new URL(location.href);
+        next.searchParams.set('mode', button.dataset.mode);
+        next.searchParams.set('run', `${button.dataset.mode}-${Date.now()}`);
+        if (button.dataset.delay) next.searchParams.set('delay', button.dataset.delay); else next.searchParams.delete('delay');
+        location.assign(next);
+      }));
+      setTimeout(() => {
+        const run = encodeURIComponent(window.__poc.run);
+        const script = document.createElement('script');
+        script.dataset.pocTracker = 'dynamic-script';
+        script.src = `/poc-assets/tracker.js?run=${run}&pattern=dynamic-script`;
+        document.body.appendChild(script);
+        const image = new Image(1, 1);
+        image.dataset.pocTracker = 'dynamic-image';
+        image.src = `/poc-assets/pixel.gif?run=${run}&pattern=dynamic-image`;
+        document.body.appendChild(image);
+        fetch(`/poc-api/collect?run=${run}&pattern=fetch`).catch(() => {});
+        try { const xhr = new XMLHttpRequest(); xhr.open('GET', `/poc-api/collect?run=${run}&pattern=xhr`); xhr.send(); } catch (_) {}
+        navigator.sendBeacon?.(`/poc-api/collect?run=${run}&pattern=beacon`, 'poc');
+      }, 100);
+      render();
+    });
+  </script>
+
+  <!-- Live initial-HTML patterns. Baseline proves each applicable pattern works. -->
+  <script data-poc-tracker="script-normal" src="/poc-assets/tracker.js?run=__POC_RUN__&pattern=script-normal"></script>
+  <script async data-poc-tracker="script-async" src="/poc-assets/tracker.js?run=__POC_RUN__&pattern=script-async"></script>
+  <script defer data-poc-tracker="script-defer" src="/poc-assets/tracker.js?run=__POC_RUN__&pattern=script-defer"></script>
+  <script data-poc-tracker="dropping-cookie" src="/poc-assets/tracker.js?run=__POC_RUN__&pattern=dropping-cookie"></script>
+  <link data-poc-tracker="preload" rel="preload" as="script" href="/poc-assets/hint.js?run=__POC_RUN__&pattern=preload">
+  <link data-poc-tracker="prefetch" rel="prefetch" href="/poc-assets/hint.js?run=__POC_RUN__&pattern=prefetch">
+
+  <script data-poc-tracker="gtm-inline">
+    window.__poc.markExecuted('gtm-inline');
+    const gtm = document.createElement('script');
+    gtm.dataset.pocTracker = 'gtm-child';
+    gtm.src = '/poc-assets/tracker.js?run=__POC_RUN__&pattern=gtm-child';
+    document.head.appendChild(gtm);
+  </script>
+  <script data-poc-tracker="meta-inline">
+    window.__poc.markExecuted('meta-inline');
+    const meta = document.createElement('script');
+    meta.dataset.pocTracker = 'meta-child';
+    meta.src = '/poc-assets/tracker.js?run=__POC_RUN__&pattern=meta-child';
+    document.head.appendChild(meta);
+  </script>
+
+  <style>
+    body { font: 16px/1.45 system-ui, sans-serif; margin: 32px auto; max-width: 1100px; padding: 0 20px; color: #17212b; }
+    h1 { margin-bottom: 4px; } .muted { color: #54616f; } button { margin: 0 8px 10px 0; padding: 8px 12px; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; } th, td { border: 1px solid #cbd5df; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #edf3f7; } pre { background: #17212b; color: #d9e4ec; padding: 12px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>Privado Autoblocker POC</h1>
+  <p class="muted">A controlled baseline-versus-blocked experiment. Initial HTML patterns intentionally remain live so browser-parser races are visible.</p>
+  <p>
+    <button data-mode="baseline">Baseline — no blocker</button>
+    <button data-mode="blocked">Blocked — 0 ms</button>
+    <button data-mode="blocked" data-delay="800">Blocked — 800 ms</button>
+  </p>
+  <p id="run-meta">Loading…</p>
+  <table>
+    <thead><tr><th>Tracker pattern</th><th>Controlled server request</th><th>Executed?</th><th>Cookie/storage effect</th></tr></thead>
+    <tbody id="results"></tbody>
+  </table>
+  <details><summary>Blocker audit</summary><pre id="audit"></pre></details>
+
+  <img data-poc-tracker="image-html" src="/poc-assets/pixel.gif?run=__POC_RUN__&pattern=image-html" width="1" height="1" alt="">
+  <noscript><img src="/poc-assets/pixel.gif?run=__POC_RUN__&pattern=noscript-image" width="1" height="1" alt=""></noscript>
+  <iframe data-poc-tracker="iframe-html" title="Controlled tracker frame" src="/poc-assets/frame.html?run=__POC_RUN__&pattern=iframe-html"></iframe>
+</body>
+</html>
