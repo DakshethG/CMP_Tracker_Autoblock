@@ -58,27 +58,29 @@ For a strict “zero optional requests before consent” promise, make optional
 tracker markup inert before it reaches the browser, or rewrite it at the
 server/CDN.
 
-## Deploy to Netlify
+## Live POC and deployment
 
-This repository includes a Netlify Functions adapter. It preserves the dynamic
-test behaviour: mode selection, a first-in-head blocker in denied mode, the
-intentional 800 ms blocker delay, and controlled tracker endpoints.
-
-1. In Netlify, choose **Add new project → Import an existing project**.
-2. Select this GitHub repository.
-3. Leave the build command empty. Netlify reads `netlify.toml` automatically.
-4. Deploy, then open the same three paths shown above using your Netlify site
-   URL instead of `127.0.0.1:56813`.
-
-Example:
+The POC is deployed on Render. These links let reviewers reproduce the three
+test modes in a browser:
 
 ```text
-https://your-site.netlify.app/
-https://your-site.netlify.app/blocked
-https://your-site.netlify.app/blocked-delayed
+https://cmp-tracker-autoblock.onrender.com/
+https://cmp-tracker-autoblock.onrender.com/blocked
+https://cmp-tracker-autoblock.onrender.com/blocked-delayed
 ```
 
-The plain site URL is the baseline mode; it does not redirect.
+To deploy a copy on Render, create a **Web Service** from this repository and
+use the following settings:
 
-Keep the repository and deployed preview private while the POC is under
-internal review.
+| Setting | Value |
+| --- | --- |
+| Build Command | `npm install` |
+| Start Command | `npm start` |
+| Root Directory | Leave blank |
+
+The Render free tier may spin down after inactivity, so its first request can
+take longer to load. The hosted links are reproducibility evidence; browser
+Network results, execution markers, and cookie/storage effects remain the
+evidence for each blocking result.
+
+Keep the repository under internal review as appropriate.
