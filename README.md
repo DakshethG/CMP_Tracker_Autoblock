@@ -57,14 +57,22 @@ For a strict “zero optional requests before consent” promise, make optional
 tracker markup inert before it reaches the browser, or rewrite it at the
 server/CDN.
 
-## Deployment
+## Deploy to Netlify
 
-This is a Node server, not a GitHub Pages site. Deploy it from this repository
-to a Node-compatible host such as Render, Railway, or a Netlify Functions
-setup. Configure the host to run:
+This repository includes a Netlify Functions adapter. It preserves the dynamic
+test behaviour: mode selection, a first-in-head blocker in denied mode, the
+intentional 800 ms blocker delay, and controlled tracker endpoints.
+
+1. In Netlify, choose **Add new project → Import an existing project**.
+2. Select this GitHub repository.
+3. Leave the build command empty. Netlify reads `netlify.toml` automatically.
+4. Deploy, then open the same three paths shown above using your Netlify site
+   URL instead of `127.0.0.1:56813`.
+
+Example:
 
 ```text
-npm start
+https://your-site.netlify.app/autoblocker-poc.html?mode=baseline&run=baseline-1
 ```
 
 Keep the repository and deployed preview private while the POC is under

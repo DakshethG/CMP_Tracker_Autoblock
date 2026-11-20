@@ -1,0 +1,8 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+# Keep the HTML dynamic: the function inserts the blocker only in blocked mode
+# and can intentionally delay its response for the 800 ms experiment.
+[functions]
+  included_files = ["public/**"]
